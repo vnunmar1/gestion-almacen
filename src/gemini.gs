@@ -1,42 +1,69 @@
 // ============================================================
-// GEMINI.GS — Extracción de datos de imagen con Gemini Vision
+// GEMINI.GS — Extracción de datos con Gemini Vision
+// Soporta dos documentos distintos: albarán y carta de porte
 // ============================================================
 
-function extractDataFromPhoto(fileId) {
+// ─── Prompt por tipo de documento ────────────────────────────
+
+const PROMPTS = {
+  albaran:
+    'Eres un asistente de control de almacén logístico. ' +
+    'Analiza esta imagen de un ALBARÁN DE ENTREGA y extrae los datos. ' +
+    'Responde ÚNICAMENTE con JSON válido, sin texto adicional ni bloques markdown. ' +
+    'Estructura exacta:\n' +
+    '{\n' +
+    '  "tipo": "ENTRADA" o "SALIDA" (infiere por contexto),\n' +
+    '  "fecha": "DD/MM/YYYY",\n' +
+    '  "cliente": "nombre completo del cliente o empresa",\n' +
+    '  "lineas": [\n' +
+    '    { "referencia": "código del producto", "descripcion": "descripción breve", "palets": número entero }\n' +
+    '  ],\n' +
+    '  "observaciones": "notas relevantes o null"\n' +
+    '}\n' +
+    'El campo "lineas" debe tener UNA entrada por cada línea de producto del albarán. ' +
+    'Si un campo no es legible escribe null. Para palets, si aparece "bultos" o "unidades" úsalo.',
+
+  porte:
+    'Eres un asistente de control de almacén logístico. ' +
+    'Analiza esta imagen de una CARTA DE PORTE y extrae los datos. ' +
+    'Responde ÚNICAMENTE con JSON válido, sin texto adicional ni bloques markdown. ' +
+    'Estructura exacta:\n' +
+    '{\n' +
+    '  "orden_carga": "número de orden de carga o expedición",\n' +
+    '  "matricula": "matrícula del vehículo (cabeza tractora)",\n' +
+    '  "matricula_remolque": "matrícula del remolque o null",\n' +
+    '  "transportista": "nombre de la empresa transportista o null",\n' +
+    '  "fecha": "DD/MM/YYYY o null",\n' +
+    '  "cliente": "destinatario o remitente si aparece, o null",\n' +
+    '  "observaciones": "notas relevantes o null"\n' +
+    '}\n' +
+    'Si un campo no es legible o no aparece escribe null.',
+};
+
+// ─── Función principal de extracción ─────────────────────────
+
+function extractDataFromPhoto(fileId, docType) {
+  // docType: 'albaran' | 'porte'
   try {
     const config = getConfig();
+    const prompt = PROMPTS[docType] || PROMPTS.albaran;
 
-    // 1. Obtener ruta del archivo desde Telegram
+    // 1. Obtener URL de descarga desde Telegram
     const fileRes = UrlFetchApp.fetch(
       `https://api.telegram.org/bot${config.TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`
     );
-    const filePath = JSON.parse(fileRes.getContentText()).result.file_path;
+    const fileMeta = JSON.parse(fileRes.getContentText());
+    if (!fileMeta.ok) throw new Error('getFile falló: ' + JSON.stringify(fileMeta));
+    const filePath = fileMeta.result.file_path;
     const imgUrl   = `https://api.telegram.org/file/bot${config.TELEGRAM_BOT_TOKEN}/${filePath}`;
 
     // 2. Descargar imagen y convertir a base64
-    const imgBlob  = UrlFetchApp.fetch(imgUrl).getBlob();
-    const base64   = Utilities.base64Encode(imgBlob.getBytes());
-    const mimeType = imgBlob.getContentType() || 'image/jpeg';
+    const imgResponse = UrlFetchApp.fetch(imgUrl);
+    const imgBlob     = imgResponse.getBlob();
+    const base64      = Utilities.base64Encode(imgBlob.getBytes());
+    const mimeType    = imgBlob.getContentType() || 'image/jpeg';
 
-    // 3. Prompt estructurado para Gemini Vision
-    const prompt =
-      'Eres un asistente de control de almacén logístico. ' +
-      'Analiza esta imagen de un albarán de entrega o carta de porte y extrae los datos clave. ' +
-      'Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin bloques de código markdown. ' +
-      'El JSON debe tener exactamente esta estructura:\n' +
-      '{\n' +
-      '  "tipo": "ENTRADA" o "SALIDA" (infiere por el contexto del documento),\n' +
-      '  "referencia": "código alfanumérico del producto/artículo",\n' +
-      '  "cliente": "nombre completo del cliente o empresa",\n' +
-      '  "palets": número entero de palets o bultos,\n' +
-      '  "fecha": "fecha en formato DD/MM/YYYY",\n' +
-      '  "matricula": "matrícula del vehículo o null si no aparece",\n' +
-      '  "observaciones": "cualquier nota relevante o null"\n' +
-      '}\n' +
-      'Si un campo no es legible o no aparece en el documento, usa null. ' +
-      'Para el campo palets, si aparece una cantidad de bultos, cajas o unidades de transporte, usa ese número.';
-
-    // 4. Llamada a Gemini 1.5 Flash
+    // 3. Llamar a Gemini 1.5 Flash Vision
     const geminiUrl =
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.GEMINI_API_KEY}`;
 
@@ -48,8 +75,8 @@ function extractDataFromPhoto(fileId) {
         ]
       }],
       generationConfig: {
-        temperature: 0.1,      // Baja temperatura para mayor precisión
-        maxOutputTokens: 512,
+        temperature: 0.1,
+        maxOutputTokens: 1024,
       }
     };
 
@@ -61,33 +88,38 @@ function extractDataFromPhoto(fileId) {
     });
 
     if (res.getResponseCode() !== 200) {
-      Logger.log('Error Gemini API: ' + res.getContentText());
+      Logger.log(`Error Gemini API (${res.getResponseCode()}): ` + res.getContentText());
       return null;
     }
 
     const raw  = JSON.parse(res.getContentText());
     const text = raw.candidates[0].content.parts[0].text;
-
-    // Limpiar posibles bloques markdown
     const clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
 
     const parsed = JSON.parse(clean);
+    Logger.log(`[Gemini ${docType}] extraído: ` + JSON.stringify(parsed));
 
-    // Normalizar tipo
-    if (parsed.tipo) {
+    // Normalizar tipo en albarán
+    if (docType === 'albaran' && parsed.tipo) {
       parsed.tipo = parsed.tipo.toUpperCase().includes('SALIDA') ? 'SALIDA' : 'ENTRADA';
     }
 
-    // Normalizar palets a número entero
-    if (parsed.palets !== null && parsed.palets !== undefined) {
-      parsed.palets = parseInt(parsed.palets) || null;
+    // Normalizar matrículas a mayúsculas
+    if (parsed.matricula)         parsed.matricula         = String(parsed.matricula).toUpperCase();
+    if (parsed.matricula_remolque) parsed.matricula_remolque = String(parsed.matricula_remolque).toUpperCase();
+
+    // Normalizar palets en líneas a entero
+    if (docType === 'albaran' && Array.isArray(parsed.lineas)) {
+      parsed.lineas = parsed.lineas.map(l => ({
+        ...l,
+        palets: parseInt(l.palets) || 0,
+      }));
     }
 
-    Logger.log('Datos extraídos por Gemini: ' + JSON.stringify(parsed));
     return parsed;
 
   } catch (err) {
-    Logger.log('Error en extractDataFromPhoto: ' + err + '\n' + err.stack);
+    Logger.log(`Error en extractDataFromPhoto (${docType}): ` + err + '\n' + err.stack);
     return null;
   }
 }
