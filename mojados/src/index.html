@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="JNSL Almacén">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1A56A0">
+  <link rel="manifest" href="?manifest=1">
+  <title>JNSL Almacén</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html {
+      font-size: 18px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f7fa;
+      min-height: 100%;
+      padding-bottom: max(48px, env(safe-area-inset-bottom) + 24px);
+      color: #111827;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      background: #f5f7fa;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    .header {
+      background: #1A56A0;
+      color: white;
+      padding: 24px 20px 22px;
+      padding-top: max(24px, env(safe-area-inset-top) + 16px);
+    }
+    .header-logo { font-size: 36px; line-height: 1; margin-bottom: 6px; }
+    .header h1   { font-size: 26px; font-weight: 800; line-height: 1.2; }
+    .header p    { font-size: 16px; opacity: 0.75; margin-top: 4px; }
+
+    /* ── Alerta de estado ───────────────────────────────────── */
+    .status {
+      margin: 12px 12px 0;
+      padding: 16px 18px;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 500;
+      line-height: 1.5;
+      display: none;
+    }
+    .status.ok  { background: #E8F5E9; color: #1B5E20; border: 1.5px solid #A5D6A7; display: block; }
+    .status.err { background: #FFEBEE; color: #B71C1C; border: 1.5px solid #EF9A9A; display: block; }
+
+    /* ── Tarjeta ────────────────────────────────────────────── */
+    .card {
+      background: white;
+      margin: 0;
+      border-radius: 0;
+      padding: 20px;
+      border-top: 1px solid #E5E7EB;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #1A56A0;
+      margin-bottom: 18px;
+    }
+
+    /* ── Campos ─────────────────────────────────────────────── */
+    .field { margin-bottom: 20px; }
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+    label .req { color: #E53E3E; margin-left: 2px; }
+
+    input[type=text],
+    input[type=date],
+    input[type=number],
+    select,
+    textarea {
+      width: 100%;
+      padding: 16px 18px;
+      border: 2px solid #E5E7EB;
+      border-radius: 12px;
+      font-size: 18px;
+      color: #111827;
+      background: #FAFAFA;
+      transition: border-color .15s, background .15s;
+      appearance: none;
+      -webkit-appearance: none;
+      font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #1A56A0;
+      background: #fff;
+    }
+    textarea { resize: vertical; min-height: 80px; }
+
+    /* ── Botones ENTRADA / SALIDA ────────────────────────────── */
+    .tipo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .tipo-btn {
+      padding: 20px 10px;
+      border: 2.5px solid #E5E7EB;
+      border-radius: 14px;
+      font-size: 19px;
+      font-weight: 800;
+      cursor: pointer;
+      text-align: center;
+      background: white;
+      color: #9CA3AF;
+      transition: all .15s;
+      user-select: none;
+      -webkit-user-select: none;
+      line-height: 1.3;
+    }
+    .tipo-btn:active               { transform: scale(0.97); }
+    .tipo-btn.entrada.active       { background: #E8F5E9; border-color: #2E7D32; color: #1B5E20; }
+    .tipo-btn.salida.active        { background: #FFEBEE; border-color: #C62828; color: #B71C1C; }
+
+    /* ── Sección de líneas ───────────────────────────────────── */
+    .lineas-section {
+      background: #F8FAFC;
+      border: 2px solid #E2E8F0;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+
+    .lineas-title {
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: #1A56A0;
+      margin-bottom: 16px;
+    }
+
+    /* ── Tarjeta de línea ────────────────────────────────────── */
+    .linea-card {
+      background: white;
+      border: 2px solid #E2E8F0;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .linea-row-ref {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .linea-row-ref input { flex: 1; }
+
+    .linea-row-nums {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .linea-field-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .linea-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #9CA3AF;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      margin-bottom: 6px;
+    }
+
+    .linea-card input {
+      padding: 14px 14px;
+      font-size: 17px;
+      border-radius: 10px;
+    }
+
+    .linea-card input.linea-cli {
+      font-size: 17px;
+      padding: 14px 16px;
+    }
+
+    .linea-total {
+      padding: 14px 8px;
+      font-size: 17px;
+      font-weight: 800;
+      color: #374151;
+      text-align: center;
+      background: #F3F4F6;
+      border: 2px solid #E5E7EB;
+      border-radius: 10px;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-del-linea {
+      width: 52px;
+      height: 52px;
+      border: none;
+      background: #FEE2E2;
+      color: #DC2626;
+      border-radius: 10px;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-weight: 400;
+      line-height: 1;
+    }
+    .btn-del-linea:active { background: #FECACA; transform: scale(0.95); }
+
+    .btn-add-linea {
+      width: 100%;
+      padding: 16px;
+      background: #EFF6FF;
+      color: #1A56A0;
+      border: 2px dashed #93C5FD;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: background .15s;
+      font-family: inherit;
+    }
+    .btn-add-linea:active { background: #DBEAFE; }
+
+    /* Resumen total */
+    .totales-bar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 28px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 2px solid #E2E8F0;
+    }
+    .tot-item { text-align: right; }
+    .tot-label {
+      font-size: 12px;
+      color: #9CA3AF;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      font-weight: 600;
+    }
+    .tot-val {
+      font-size: 26px;
+      font-weight: 900;
+      color: #111827;
+      line-height: 1.1;
+    }
+
+    /* ── Botón enviar ───────────────────────────────────────── */
+    .btn-enviar {
+      width: 100%;
+      padding: 20px;
+      background: #1A56A0;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 20px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      letter-spacing: .3px;
+      font-family: inherit;
+    }
+    .btn-enviar:active:not(:disabled) { transform: scale(0.98); }
+    .btn-enviar:hover:not(:disabled)  { background: #154898; }
+    .btn-enviar:disabled { background: #9CA3AF; cursor: not-allowed; }
+
+    /* ── Desktop: más compacto y con márgenes ───────────────── */
+    @media (min-width: 700px) {
+      html { font-size: 16px; background: #E8ECF0; }
+      .card { padding: 24px; margin: 12px; border-radius: 16px; border: none; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+      .tipo-btn { padding: 16px 10px; font-size: 17px; }
+      input[type=text], input[type=date], input[type=number], select, textarea {
+        padding: 13px 16px; font-size: 16px;
+      }
+      .linea-card input { padding: 11px 12px; font-size: 15px; }
+      .linea-total { font-size: 15px; min-height: 44px; padding: 11px 6px; }
+      .btn-del-linea { width: 44px; height: 44px; font-size: 20px; }
+      .btn-enviar { padding: 16px; font-size: 17px; }
+      .tot-val { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="header">
+    <div class="header-logo">📦</div>
+    <h1>JNSL Almacén</h1>
+    <p>Julio Núñez S.L. · v4</p>
+  </div>
+
+  <div id="status" class="status"></div>
+
+  <!-- ── Datos del movimiento ──────────────────────────────── -->
+  <div class="card">
+    <div class="section-title">Datos del movimiento</div>
+
+    <div class="field">
+      <label>Fecha <span class="req">*</span></label>
+      <input type="date" id="fecha">
+    </div>
+
+    <div class="field">
+      <label>Tipo <span class="req">*</span></label>
+      <div class="tipo-grid">
+        <div class="tipo-btn entrada" onclick="selectTipo('ENTRADA')">📥<br>ENTRADA</div>
+        <div class="tipo-btn salida"  onclick="selectTipo('SALIDA')">📤<br>SALIDA</div>
+      </div>
+    </div>
+
+    <div class="field" id="fieldAlbaran" style="display:none">
+      <label>Nº Albarán <span class="req">*</span></label>
+      <input type="text" id="albaran" placeholder="ej: 101, 102..." autocomplete="off" inputmode="numeric">
+    </div>
+
+    <div class="field" id="fieldCmr" style="display:none">
+      <label>Carta Porte (CMR)</label>
+      <input type="text" id="cmr" placeholder="ej: 12408" autocomplete="off" inputmode="numeric">
+    </div>
+
+    <div class="field">
+      <label>Observaciones</label>
+      <textarea id="obs" placeholder="Notas adicionales (opcional)"></textarea>
+    </div>
+  </div>
+
+  <!-- ── Referencias, cantidades y mercancía ──────────────── -->
+  <div class="card">
+    <div class="section-title">Mercancía</div>
+
+    <div class="lineas-section">
+      <div class="lineas-title">📋 Añade una línea por referencia</div>
+
+      <div id="lineasContainer"></div>
+
+      <button class="btn-add-linea" onclick="addLinea()">＋ Añadir referencia</button>
+
+      <div class="totales-bar">
+        <div class="tot-item">
+          <div class="tot-label">Total palets</div>
+          <div class="tot-val" id="totalPalets">0</div>
+        </div>
+        <div class="tot-item">
+          <div class="tot-label">Total piezas</div>
+          <div class="tot-val" id="totalPiezas">0</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-enviar" id="btnEnviar" onclick="enviar()">✅ REGISTRAR MOVIMIENTO</button>
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+  // ── Fecha de hoy por defecto ───────────────────────────────
+  (function() {
+    var hoy = new Date();
+    document.getElementById('fecha').value =
+      hoy.getFullYear() + '-' +
+      String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+      String(hoy.getDate()).padStart(2, '0');
+  })();
+
+  // ── Tipo de movimiento ─────────────────────────────────────
+  var tipoSeleccionado = '';
+  function selectTipo(tipo) {
+    tipoSeleccionado = tipo;
+    document.querySelectorAll('.tipo-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelector('.tipo-btn.' + tipo.toLowerCase()).classList.add('active');
+    var esEntrada = tipo === 'ENTRADA';
+    // ENTRADA: albarán + CMR visibles · SALIDA: ninguno de los dos
+    document.getElementById('fieldAlbaran').style.display = esEntrada ? '' : 'none';
+    document.getElementById('fieldCmr').style.display     = esEntrada ? '' : 'none';
+    if (!esEntrada) {
+      document.getElementById('albaran').value = '';
+      document.getElementById('cmr').value     = '';
+    }
+  }
+
+  // ── Gestión de líneas ──────────────────────────────────────
+  var lineaCount = 0;
+
+  function addLinea(refVal, piezasVal, paletsVal, clienteVal) {
+    lineaCount++;
+    var id = lineaCount;
+    var div = document.createElement('div');
+    div.className = 'linea-card';
+    div.id = 'linea-' + id;
+    div.innerHTML =
+      '<div class="linea-row-ref">' +
+        '<input type="text" id="ref-' + id + '" placeholder="Referencia"' +
+          (refVal ? ' value="' + refVal + '"' : '') +
+          ' autocomplete="off" inputmode="numeric">' +
+        '<button class="btn-del-linea" onclick="delLinea(' + id + ')">×</button>' +
+      '</div>' +
+      '<input type="text" class="linea-cli" id="cli-' + id + '" placeholder="Cliente *"' +
+        (clienteVal ? ' value="' + clienteVal + '"' : '') +
+        ' autocomplete="off" autocapitalize="characters">' +
+      '<div class="linea-row-nums">' +
+        '<div class="linea-field-group">' +
+          '<div class="linea-label">Piezas/palet</div>' +
+          '<input type="number" id="pzs-' + id + '" placeholder="Pzs" min="1"' +
+            (piezasVal ? ' value="' + piezasVal + '"' : '') +
+            ' inputmode="numeric" oninput="recalcLinea(' + id + ')">' +
+        '</div>' +
+        '<div class="linea-field-group">' +
+          '<div class="linea-label">Nº palets</div>' +
+          '<input type="number" id="pal-' + id + '" placeholder="Pal" min="1"' +
+            (paletsVal ? ' value="' + paletsVal + '"' : '') +
+            ' inputmode="numeric" oninput="recalcLinea(' + id + ')">' +
+        '</div>' +
+        '<div class="linea-field-group">' +
+          '<div class="linea-label">Total pzs</div>' +
+          '<div class="linea-total" id="tot-' + id + '">—</div>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('lineasContainer').appendChild(div);
+    if (piezasVal && paletsVal) recalcLinea(id);
+    return id;
+  }
+
+  function delLinea(id) {
+    var el = document.getElementById('linea-' + id);
+    if (el) el.remove();
+    if (document.querySelectorAll('.linea-card').length === 0) addLinea();
+    recalcTotales();
+  }
+
+  function recalcLinea(id) {
+    var pzs = parseInt(document.getElementById('pzs-' + id).value) || 0;
+    var pal = parseInt(document.getElementById('pal-' + id).value) || 0;
+    var tot = document.getElementById('tot-' + id);
+    tot.textContent = (pzs > 0 && pal > 0) ? (pzs * pal).toLocaleString('es-ES') : '—';
+    recalcTotales();
+  }
+
+  function recalcTotales() {
+    var totalPalets = 0, totalPiezas = 0;
+    document.querySelectorAll('.linea-card').forEach(function(card) {
+      var id  = card.id.replace('linea-', '');
+      var pzs = parseInt(document.getElementById('pzs-' + id).value) || 0;
+      var pal = parseInt(document.getElementById('pal-' + id).value) || 0;
+      totalPalets += pal;
+      totalPiezas += pzs * pal;
+    });
+    document.getElementById('totalPalets').textContent = totalPalets.toLocaleString('es-ES');
+    document.getElementById('totalPiezas').textContent = totalPiezas.toLocaleString('es-ES');
+  }
+
+  addLinea();
+
+  // ── Envío ──────────────────────────────────────────────────
+  function enviar() {
+    var fecha   = document.getElementById('fecha').value;
+    var albaran = document.getElementById('albaran').value.trim();
+    var cmr     = document.getElementById('cmr').value.trim();
+    var obs     = document.getElementById('obs').value.trim() || '—';
+
+    var lineas = [];
+    document.querySelectorAll('.linea-card').forEach(function(card) {
+      var id  = card.id.replace('linea-', '');
+      var ref = (document.getElementById('ref-' + id).value || '').trim();
+      var cli = (document.getElementById('cli-' + id).value || '').trim().toUpperCase();
+      var pzs = parseInt(document.getElementById('pzs-' + id).value) || 0;
+      var pal = parseInt(document.getElementById('pal-' + id).value) || 0;
+      if (pzs > 0 && pal > 0) {
+        lineas.push({ referencia: ref, piezas: pzs, palets: pal, cliente: cli });
+      }
+    });
+
+    var errores = [];
+    if (!fecha)            errores.push('Fecha');
+    if (!tipoSeleccionado) errores.push('Tipo (ENTRADA / SALIDA)');
+    if (tipoSeleccionado === 'ENTRADA' && !albaran) errores.push('Nº Albarán (obligatorio en entradas)');
+    if (!lineas.length)    errores.push('Al menos una línea con piezas y palets');
+    var sinCliente = lineas.filter(function(l) { return !l.cliente; });
+    if (sinCliente.length) errores.push('Cliente en todas las líneas');
+
+    if (errores.length) {
+      mostrarEstado('❌ Completa: ' + errores.join(', '), 'err');
+      return;
+    }
+
+    var parts    = fecha.split('-');
+    var fechaStr = parts[2] + '/' + parts[1] + '/' + parts[0];
+    var totalPalets = lineas.reduce(function(s, l) { return s + l.palets; }, 0);
+    var totalPiezas = lineas.reduce(function(s, l) { return s + l.piezas * l.palets; }, 0);
+
+    var btn = document.getElementById('btnEnviar');
+    btn.disabled = true;
+    btn.textContent = '⏳ Guardando...';
+    mostrarEstado('', '');
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btn.disabled = false;
+        btn.textContent = '✅ REGISTRAR MOVIMIENTO';
+        if (res && res.ok) {
+          var emoji = tipoSeleccionado === 'ENTRADA' ? '📥' : '📤';
+          mostrarEstado(
+            emoji + ' ' + tipoSeleccionado + ' guardada: ' +
+            lineas.length + ' ref. · ' +
+            totalPalets.toLocaleString('es-ES') + ' pal. · ' +
+            totalPiezas.toLocaleString('es-ES') + ' piezas' +
+            (res.warn ? '\n⚠️ ' + res.warn : ''),
+            'ok'
+          );
+          resetForm();
+        } else {
+          mostrarEstado('❌ Error al guardar: ' + (res ? res.error : 'desconocido'), 'err');
+        }
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled = false;
+        btn.textContent = '✅ REGISTRAR MOVIMIENTO';
+        mostrarEstado('❌ Error: ' + err.message, 'err');
+      })
+      .procesarMovimiento({
+        fecha:   fechaStr,
+        tipo:    tipoSeleccionado,
+        albaran: albaran,
+        cmr:     cmr,
+        obs:     obs,
+        lineas:  lineas
+      });
+  }
+
+  // ── Reset tras guardar ─────────────────────────────────────
+  function resetForm() {
+    document.getElementById('albaran').value = '';
+    document.getElementById('cmr').value     = '';
+    document.getElementById('obs').value     = '';
+    tipoSeleccionado = '';
+    document.querySelectorAll('.tipo-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('fieldAlbaran').style.display = 'none';
+    document.getElementById('fieldCmr').style.display     = 'none';
+
+    var hoy = new Date();
+    document.getElementById('fecha').value =
+      hoy.getFullYear() + '-' +
+      String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+      String(hoy.getDate()).padStart(2, '0');
+
+    document.getElementById('lineasContainer').innerHTML = '';
+    lineaCount = 0;
+    addLinea();
+    recalcTotales();
+  }
+
+  function mostrarEstado(msg, tipo) {
+    var el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status' + (tipo ? ' ' + tipo : '');
+    if (msg) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+</script>
+</body>
+</html>
