@@ -202,15 +202,17 @@ function actualizarStock(ss, sincronizar) {
   });
 
   entRows.forEach(function(p) {
-    if (fechaCorteMs && _dateToMs(p.fecha) < fechaCorteMs) return;
     const key = p.cliente + '||' + p.referencia + '||' + p.piezasPal;
+    // Solo filtrar por fecha de corte si la referencia está en STOCK BASE
+    // (para las que no están, contamos todos sus movimientos desde el principio)
+    if (fechaCorteMs && baseMap[key] && _dateToMs(p.fecha) < fechaCorteMs) return;
     if (!map[key]) map[key] = { cli: p.cliente, ref: p.referencia, piezasPal: p.piezasPal, palEnt: 0, palSal: 0, piezEnt: 0, piezSal: 0 };
     map[key].palEnt  += p.palets;
     map[key].piezEnt += p.totPiezas || p.piezasPal * p.palets;
   });
   salRows.forEach(function(p) {
-    if (fechaCorteMs && _dateToMs(p.fecha) < fechaCorteMs) return;
     const key = p.cliente + '||' + p.referencia + '||' + p.piezasPal;
+    if (fechaCorteMs && baseMap[key] && _dateToMs(p.fecha) < fechaCorteMs) return;
     if (!map[key]) map[key] = { cli: p.cliente, ref: p.referencia, piezasPal: p.piezasPal, palEnt: 0, palSal: 0, piezEnt: 0, piezSal: 0 };
     map[key].palSal  += p.palets;
     map[key].piezSal += p.totPiezas || p.piezasPal * p.palets;
